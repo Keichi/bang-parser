@@ -1,5 +1,7 @@
 import { Buffer } from 'buffer';
 import { runInNewContext } from 'vm';
+import 'console';
+
 import { Context } from './context';
 
 const aliasRegistry: { [key: string]: Parser } = {};
@@ -581,10 +583,6 @@ export class Parser {
   getCode() {
     const ctx = new Context();
 
-    ctx.pushCode('if (!Buffer.isBuffer(buffer)) {');
-    ctx.generateError('"argument buffer is not a Buffer object"');
-    ctx.pushCode('}');
-
     if (!this.alias) {
       this.addRawCode(ctx);
     } else {
@@ -612,8 +610,6 @@ export class Parser {
     this.generate(ctx);
 
     this.resolveReferences(ctx);
-
-    ctx.pushCode('return vars;');
   }
 
   private addAliasedCode(ctx: Context) {
@@ -646,8 +642,8 @@ export class Parser {
   }
 
   compile() {
-    const src = '(function(buffer, constructorFn) { ' + this.getCode() + ' })';
-    this.compiled = runInNewContext(src, { Buffer });
+    const src = `(function(buffer, constructorFn) { ${this.getCode()} })`;
+    this.compiled = runInNewContext(src, { Buffer, console });
   }
 
   sizeOf(): number {
@@ -705,6 +701,10 @@ export class Parser {
   parse(buffer: Buffer) {
     if (!this.compiled) {
       this.compile();
+    }
+
+    if (!Buffer.isBuffer(buffer)) {
+      throw new Error('argument buffer is not a Buffer object');
     }
 
     return this.compiled(buffer, this.constructorFn);
